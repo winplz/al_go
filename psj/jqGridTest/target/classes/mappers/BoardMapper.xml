@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="board">
+
+<!-- 글 목록보기 -->
+<select id="getList" resultType="BoardDTO">
+select aa.*
+from(select a.*,@rownum:=@rownum+1 as rnum, FLOOR((@rownum -1)/#{rows}+1) pageNumber
+from( SELECT @rownum := 0 )b , (select * from board order by bno desc)a)aa
+where aa.pageNumber = #{page} order by aa.rnum
+</select>
+
+<!-- 글쓰기 -->
+<insert id="create">
+insert into board(title,content,writer)
+values(#{title},#{content},#{writer})
+</insert>
+
+<!-- 전체 글수 -->
+<select id="getCount" resultType="JsonObj">
+select count(*) totalCnt, 
+		CEIL(count(*)/5) totalPage 
+from board
+</select> 
+
+<!-- 상세 글 보기 -->
+<select id="getThisPage" resultType="BoardDTO">
+select * from board
+where bno=#{bno}
+</select>
+
+<!-- 글수정 -->
+<update id="update">
+update board set title=#{title},content=#{content}
+where bno=#{bno}
+</update>
+
+<!-- 글삭제 -->
+<delete id="delete">
+delete from board
+where bno=#{bno}
+</delete>
+
+<!-- 조회수 증가 -->
+<update id="viewCount">
+update board set viewcnt=viewcnt+1
+where bno=#{bno}
+</update>
+
+<!-- 페이지 번호 인덱싱 초기화 -->
+<update id="boardNumReset">
+<![CDATA[
+ALTER TABLE board AUTO_INCREMENT=1;
+SET @COUNT = 0;
+UPDATE board SET bno = @COUNT:=@COUNT+1;
+]]>
+</update>
+</mapper>

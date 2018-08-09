@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="user">
+<insert id="register">
+insert into user(mid,mpwd,mname,mtel,memail,mgender,mage,enabled,authority)
+	values(#{mid},#{mpwd},#{mname},#{mtel},#{memail},#{mgender},#{mage},1,'ROLE_USER')
+</insert>
+</mapper>

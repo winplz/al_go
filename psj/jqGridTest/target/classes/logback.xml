@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+		<layout class="ch.qos.logback.classic.PatternLayout">
+			<Pattern>▶%d{HH:mm:ss.SSS} [%thread] %-5level %logger[%method:%line] - %msg%n</Pattern>
+		</layout>
+	</appender>
+
+	<logger name="com.jqgrid" level="info" />
+	
+	<logger name="java.sql" level="info" />
+	<logger name="jdbc.sqlonly" level="debug" />
+	<logger name="jdbc.sqltiming" level="error" />
+	<logger name="jdbc.audit" level="error" />
+	<logger name="jdbc.resultset" level="info" />
+	<logger name="jdbc.resultsettable" level="DEBUG"/>
+	
+	<logger name="java.sql" level="DEBUG">
+   <appender-ref ref="OUT"/> 
+   <!-- see the appender named OUT defined above -->
+</logger>
+
+	<root level="debug">
+		<appender-ref ref="STDOUT" />
+	</root>
+</configuration>
