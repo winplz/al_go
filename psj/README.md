@@ -1,2 +1,1 @@
-# Welcome to Igloo Security !
-## This is a Algorithm Study Group
+## 님의 스터디 공간입니다.
