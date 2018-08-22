@@ -14,11 +14,3 @@ java style
   -> Reversal Algorithm for array rotation
    ->(ArBr)
    
- class
-   class XYZ
-   {
-     int x;
-     long y;
-     doduble z;
-   }
-  
