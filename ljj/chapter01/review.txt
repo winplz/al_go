@@ -1,0 +1,16 @@
+# chapter01
+* 체크 포인트
+
+  1. 알고리즘 정의
+     * 문제 정의(Problem Definition)
+     * 알고리즘 설명(Algorithm Description)
+     * 정확성 증명(Correctness Proof)
+     * 성능 분석(Perfomance Analysis)
+
+  2. 알고리즘 전제조건
+     * 입력, 출력, 명확성, 유한성, 수행 가능성
+
+  3. 구조적 프로그래밍?? 객제지향 프로그래밍?
+     * 순차적 프로그래밍(Sequential Programming), 비구조적 프로그래밍(Non-structured programming)
+     * 절차적 프로그래밍(Procedural Programming), 구조적 프로그래밍(Structured Programming)
+     * 객체 지향 프로그래밍(Object-Oriented Programming)

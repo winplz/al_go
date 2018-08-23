@@ -1,0 +1,16 @@
+java style
+  int array[];
+  a = new int[5];
+  
+  array copy
+  int a[] = {1, 2, 3, 4, 5};
+  int b[] = a.clone();
+  Q. array size 1000000 일 경우 일반적인 array copy, array clone 성능 차이?
+     ->clone 실행시간(초.0f) : 0.001초
+     ->반복문 실행시간(초.0f) : 0.007초
+     
+  array sort
+  -> Array Rotation
+  -> Reversal Algorithm for array rotation
+   ->(ArBr)
+   
