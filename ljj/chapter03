@@ -1,0 +1,51 @@
+info
+chapter03 : 검색 알고리즘
+03-1
+    1. 선형검색
+    2. 이진검색
+    3. 해시법
+
+    moer. array vs list secarch
+
+03-2
+    linerar search
+        최고, 최악의 경우
+        my style coding
+            for (i = 1; i < MAX_ARRAY_SIZE; i++) {
+                if (a[i] == key) {
+                    return i;
+                }
+             }       
+             return -1;
+     
+     sentinel method(보초법)
+ 
+03-3
+    binary search
+        검색 값이 오름차순 또는 내림차순으로 정렬된 배열 검색하는 알고리즘
+        O(log n)
+        public int biary_searcy(int[] data, int search_data)
+        {
+            int mid;
+            int start;
+            int end;
+            
+            start = 0;
+            end = data.length - 1;
+            
+            while (start <= end) {
+              mid = (start + end) / 2
+              if (data[mid] == search_data) {
+                  return data[mid];
+              }
+              
+              if (data[mid] < search_data) {
+                  start = mid + 1;
+              } else {
+                  end = mid - 1;
+              }
+            }
+            
+            return -1;
+        }
+      
