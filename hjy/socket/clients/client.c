@@ -5,7 +5,7 @@
 #include <arpa/inet.h> //inet_addr
 #include <pthread.h>
 
-#define MAX 10
+#define MAX 5
 #define MAX_MSG 1024
 #define PORT 4321
 #define HOST "localhost"
@@ -80,14 +80,14 @@ void *connectionHandler(void *arg)
 		sleep(1);
 		//usleep(100000); // 1 sec : 1000000
 		//pthread_mutex_lock(&mutx);
-		sprintf(sendBuff, "(%d)Send : %d data",sd, i++);
+		sprintf(sendBuff, "Send(%d) : data",sd);
 		rc = send(sd, sendBuff, strlen(sendBuff),0);
 		//pthread_mutex_unlock(&mutx);
 		if(rc < 0)
 		{
 			perror("send");
 		}
-		printf("%s\n", sendBuff);
+		//printf("%s\n", sendBuff);
 		/*
 		rc = recv(sd, recvBuff, MAX_MSG, 0);
 		if(rc < 0)

@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 				printf("Error : send\n");
 				//break;
 			}
-
+			/*
 			rc = recv(sd, recvBuff, MAX_MSG, 0);
 			if(rc < 0)
 			{
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 				//break;
 			}
 			printf("Recv : %s\n", recvBuff);
-
+			*/
 		}
 			
 		memset(sendBuff, '\0', MAX_MSG);
