@@ -88,11 +88,12 @@ int main()
 					printf("disconnection(%d)\n", i);
 				}else
 				{
-					printf("(%d)recv : %s\n", i, msg);
-					// echo
+					printf("\t(%d)recv : %s\n", i, msg);
+					/* echo
 					rc = send(i, msg, strlen(msg), 0);
 					if(rc < 0)
 						printf("send : error\n");
+					*/
 				}
 				memset(msg, '\0', BUF_SIZE);
 			}

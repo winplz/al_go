@@ -73,29 +73,29 @@ void *connectionHandler(void *arg)
 	printf("connection(%lu) : %d\n,",pthread_self(), sd);
 
 	//for(i=0; i<MAX; i++)
-	//for(i=0; i<100; i++)
+	for(i=0; i<10; i++)
 	//{
-		while(1)
+		//while(1)
 		{
-		sleep(1);
+		//sleep(1);
 		//usleep(100000); // 1 sec : 1000000
-		pthread_mutex_lock(&mutx);
+		//pthread_mutex_lock(&mutx);
 		sprintf(sendBuff, "(%d)Send : %d data",sd, i++);
 		rc = send(sd, sendBuff, strlen(sendBuff),0);
-		pthread_mutex_unlock(&mutx);
+		//pthread_mutex_unlock(&mutx);
 		if(rc < 0)
 		{
 			perror("send");
 		}
 		printf("%s\n", sendBuff);
-
+		/*
 		rc = recv(sd, recvBuff, MAX_MSG, 0);
 		if(rc < 0)
 		{
 			perror("recv");
 		}
 		printf("(%d)recv : %s\n", sd, recvBuff);
-		
+		*/
 		memset(recvBuff, '\0', strlen(recvBuff));
 		memset(sendBuff, '\0', strlen(sendBuff));
 		}
