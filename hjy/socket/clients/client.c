@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 	
 	for(i=0; i<MAX; i++)
 	{	
-		//usleep(1000);
+		usleep(1000);
 		pthread_create(&connect_thr[i], NULL, connectionHandler, NULL);
 	}
 
@@ -77,7 +77,7 @@ void *connectionHandler(void *arg)
 	//{
 		//while(1)
 		{
-		//sleep(1);
+		sleep(1);
 		//usleep(100000); // 1 sec : 1000000
 		//pthread_mutex_lock(&mutx);
 		sprintf(sendBuff, "(%d)Send : %d data",sd, i++);

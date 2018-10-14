@@ -88,7 +88,7 @@ int main()
 					printf("disconnection(%d)\n", i);
 				}else
 				{
-					printf("\t(%d)recv : %s\n", i, msg);
+					printf("\tmessage(%d): %s\n", i, msg);
 					/* echo
 					rc = send(i, msg, strlen(msg), 0);
 					if(rc < 0)

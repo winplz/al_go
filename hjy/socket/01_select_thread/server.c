@@ -131,7 +131,7 @@ void *thread_recv(void *arg)
 
 	while((rc = recv(sd, msg, BUF_SIZE, 0)) > 0)
 	{
-		printf("\t(%d)message : %s\n", sd, msg);
+		printf("\tmessage(%d) : %s\n", sd, msg);
 		rc = send(sd, msg, strlen(msg), 0);
 		if(rc < 0)
 			perror("send");
