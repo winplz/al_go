@@ -1,153 +1,126 @@
 #include "common.h"
 
+// SIGNAL 처리
+void init_signal();
+void signal_handler(int signum);
+
 // 전역 변수
-pthread_mutex_t mutx;
-pthread_cond_t cond;
+int g_server_fd;
 
-pthread_t recv_thr_list[MAX];
-pthread_t recv_thr;
-pthread_t accept_thr;
-pthread_t select_thr;
-pthread_t write_thr;
+// recv_thr_list 전체를 풀어주기 위해서...
+pthread_mutex_t recv_mutx;
+pthread_cond_t recv_cond;
 
-int server_sd;
-
-TAILQ_HEAD(head_s, node) g_agent_head, g_recv_head, g_send_head;
-
-
-node_t* node_init();									// node_t 생성 후, 반환
-void queue_add(node_t *pNode, struct head_s *head);		// 넘겨준 node, insert
-int queue_remove(node_t *pNode, struct head_s *head);	// 넘겨준 node, remove
-int queue_count(struct head_s *head);					// queue conut 
-int queue_get_max_fd(struct head_s *head);				// 가장 큰 fd값 리턴
-
-void queue_print(struct head_s *head)
-{
-	node_t *pNode = NULL;
-	TAILQ_FOREACH(pNode, head, nodes)
-	{
-		printf("\t(%d)\n",pNode->fd);
-	}
-}
-
-
-int init_network();
+void init_threads();
+void destroy_threads();
 
 void *thread_accept(void *arg);		// select를 사용한 accpet thread : 1개
 void *thread_select(void *arg); 	// select
 void *thread_recv(void *arg);		// recv thread * n개 
 
 
-#define OPTION 0
-
 int main()
 {
+
 	int rc, i;
-	
+
+	init_signal(); // signal 
+
 	// init TAILQ_HEAD
-	TAILQ_INIT(&g_agent_head);
 	TAILQ_INIT(&g_recv_head);
-	TAILQ_INIT(&g_send_head);
 	
-	pthread_mutex_init(&mutx, NULL);
-	pthread_cond_init(&cond, NULL);
+	pthread_mutex_init(&recv_mutx, NULL);
+	pthread_cond_init(&recv_cond, NULL);
 
-
-	// init_network( socket --> bind --> listen )
-	if( -1 == (server_sd = init_network()))
+	// init : network( socket --> bind --> listen )
+	if( -1 == (g_server_fd = init_network()))
 	{
 		printf("error : init_network()\n");
 		return -1;
 	}
-	printf("\tsever_sd : %d\n",server_sd);
+	printf("\tsever_sd : %d\n",g_server_fd);
+	printf("\tMAX_CLIENT_COUNT : %d\n", MAX);
+	printf("\tRECV_THR_COUNT : %d\n", RECV_THR_COUNT);
 
-	// create thread
-	// 1. recv_thr * MAX
-	// 2. select_thr
-	// 3. accept_thr 
-#if OPTION	
-	for(i=0; i<RECV_THR_COUNT; i++)
-	{
-		pthread_create(&recv_thr_list[i], NULL, thread_recv, NULL);
-	}
-#else
-	pthread_create(&recv_thr, NULL, thread_recv, NULL);
-#endif
-	pthread_create(&select_thr, NULL, thread_select, NULL);
-	pthread_create(&accept_thr, NULL, thread_accept, NULL);
-	
-	// pthread_join
-#if OPTION
-	for(i=0; i<RECV_THR_COUNT; i++)
-	{
-		pthread_join(recv_thr_list[i], NULL);
-	}	
-#else
-	pthread_join(recv_thr, NULL);
-#endif
-	pthread_join(select_thr, NULL);
-	pthread_join(accept_thr, NULL);
-	
+	// init : agent_list
+	init_agentlist(&g_agent);
+	init_agentlist(&g_report);
+
+	// init : thread
+	init_threads();
+
+	destroy_threads();
+	TAILQ_INIT(&g_recv_head);
+	destroy_agentlist(&g_agent);
+
 	return 0;
 }
 
 
-int init_network()
+
+
+void init_threads()
 {
-	/*
-	 * 1.create socket
-	 * 2.set socket option
-	 * 3.bind
-	 * 4.listen
-	 * 5.ready accept
-	 */ 
-	int optval = 1;
-	struct sockaddr_in server_addr;
-	
-	// 1.
-	if(-1 == (server_sd = socket(AF_INET, SOCK_STREAM, 0)))
+	int i;
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+
+	// g_recv_thr_list
+	for(i=0; i<RECV_THR_COUNT; i++)
 	{
-		perror("create socket");
-		return -1;
+		pthread_mutex_init(&g_recv_thr_list[i].mutx, &attr);
+		pthread_cond_init(&g_recv_thr_list[i].cond, NULL);
+		snprintf(g_recv_thr_list[i].name, sizeof(g_recv_thr_list[i].name), "RECV_THR%d",i);
+		pthread_create(&g_recv_thr_list[i].thr, NULL, thread_recv, &g_recv_thr_list[i]);
+		//pthread_create(&g_recv_thr_list[i].thr, NULL, thread_recv, (void *)&g_recv_thr_list[i]);
 	}
 
-	// 2.
-	// SO_REUSEDDR : 이미 사용된 주소를 재사용
-	// ex) bind error : Address already in use 
-	if(setsockopt(server_sd, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof(optval)) < 0)
-	{
-		perror("setsocket");
-		return -1;
-	}
-	
-	server_addr.sin_family = AF_INET;
-	//server_addr.sin_addr.s_addr = INADDR_ANY;
-	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	server_addr.sin_port = htons(PORT); // #define PORT 1234
-	
-	// 3.
-	if(-1 == bind(server_sd, (struct sockaddr *)&server_addr, sizeof(server_addr)))
-	{
-		perror("bind");
-		return -1;
-	}
+	// g_select_thr
+	pthread_mutex_init(&g_select_thr.mutx, &attr);
+	pthread_cond_init(&g_select_thr.cond, NULL);
+	snprintf(g_select_thr.name, sizeof(g_select_thr.name), "SELECT_THR");
+	pthread_create(&g_select_thr.thr, NULL, thread_select, &g_select_thr);
 
-	// 4.
-	// backlog : 5
-	if(-1 == listen(server_sd, 5))
-	{
-		perror("listen");
-		return -1;
-	}
-	printf("----------Start Server----------\n");
-	printf("\tListenr on port : %d\n", PORT);
-	printf("\tWaiting for connection\n");
-
-	return server_sd;
+	// g_accept_thr
+	pthread_mutex_init(&g_accept_thr.mutx, &attr);
+	pthread_cond_init(&g_accept_thr.cond, NULL);
+	snprintf(g_accept_thr.name, sizeof(g_accept_thr.name), "ACCEPT_THR");
+	pthread_create(&g_accept_thr.thr, NULL, thread_accept, &g_accept_thr);
 }
+
+void destroy_threads()
+{
+	int i;
+	for(i=0; i<RECV_THR_COUNT; i++)
+	{
+		pthread_join(g_recv_thr_list[i].thr, NULL);
+		pthread_mutex_destroy(&g_recv_thr_list[i].mutx);
+		pthread_cond_destroy(&g_recv_thr_list[i].cond);
+	}
+
+	pthread_join(g_select_thr.thr, NULL);
+	pthread_mutex_destroy(&g_select_thr.mutx);
+	pthread_cond_destroy(&g_select_thr.cond);
+
+	pthread_join(g_accept_thr.thr, NULL);
+	pthread_mutex_destroy(&g_accept_thr.mutx);
+	pthread_cond_destroy(&g_accept_thr.cond);
+}
+
+
 void *thread_accept(void *arg)	// select를 사용한 accpet thread : 1개
 {
-	printf("Start : thread_accept\n");
+	thr_t *pThr;
+	pThr = (thr_t *)arg;
+	if(pThr == NULL)
+	{
+		printf("thread_accept is fail\n");
+		pthread_exit(NULL);
+	}
+	else
+		printf("START : %s\n", pThr->name);
+
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
@@ -157,14 +130,14 @@ void *thread_accept(void *arg)	// select를 사용한 accpet thread : 1개
 	int i, rc;
 
 	FD_ZERO(&recv_fds);
-	FD_SET(server_sd, &recv_fds);
+	FD_SET(g_server_fd, &recv_fds);
 				
-	client_len = sizeof(client_addr);
-	
+	client_len = sizeof(client_addr);			
+
 	while(1)
 	{
 		memcpy(&temp_fds, &recv_fds, sizeof(recv_fds)); 	// backup
-		rc = select(server_sd+1, &temp_fds, 0, 0, NULL);
+		rc = select(g_server_fd+1, &temp_fds, 0, 0, NULL);
 		if(-1 == rc)
 		{
 			perror("thread_accept");
@@ -173,15 +146,23 @@ void *thread_accept(void *arg)	// select를 사용한 accpet thread : 1개
 			printf("select : timeout\n");
 		}else
 		{
-			if(FD_ISSET(server_sd, &temp_fds))
+			if(FD_ISSET(g_server_fd, &temp_fds))
 			{		
-				client_sd = accept(server_sd, (struct sockaddr *)&client_addr, &client_len);
-				printf("\t(%d)connection\n", client_sd);
+				pthread_mutex_lock(&pThr->mutx);
+				client_sd = accept(g_server_fd, (struct sockaddr *)&client_addr, &client_len);
+				// Add : agent_queue
+				agent_node_t new_agent;
+				new_agent.fd = client_sd;
+				agent_add(&g_agent, new_agent);
+			
+				measureStartTime(new_agent.fd, 0);
 
-				node_t *new_node = node_init();
-				new_node->fd = client_sd;
-				new_node->used = false;
-				queue_add(new_node, &g_agent_head);
+				pthread_mutex_unlock(&pThr->mutx);
+
+				if(g_agent.count == 1)
+				{
+					pthread_cond_signal(&g_select_thr.cond);
+				}
 			}
 		}
 	}
@@ -192,71 +173,80 @@ void *thread_accept(void *arg)	// select를 사용한 accpet thread : 1개
 
 void *thread_select(void *arg)
 {
-	printf("Start : thread_select\n");
+	thr_t *pThr;
+	pThr = (thr_t *)arg;
+	if(pThr == NULL)
+	{
+		printf("thread_select is fail\n");
+		pthread_exit(NULL);
+	}
+	else
+		printf("START : %s\n", pThr->name);
+
+
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
-	fd_set recv_fds, temp_fds;
+	fd_set temp_fds;
 	struct timeval timeout;
 
-	int rc, num, max_sd;
-	char recvBuff[BUF_SIZE] = {0, };
+	int rc, i, count=0;
+	node_t newNode;
 
-	node_t *pNode = NULL;
-	
 	while(1)
 	{
-		FD_ZERO(&recv_fds);
-		max_sd = 0;
-		if(0 != (num = queue_count(&g_agent_head) != 0))
+							
+		pthread_mutex_lock(&pThr->mutx);
+		count = g_agent.count;
+		pthread_mutex_unlock(&pThr->mutx);
+
+		if(0 != count)
 		{
-			TAILQ_FOREACH(pNode, &g_agent_head, nodes)
-			{
-				if(pNode->used == false)
-				{
-					printf("FD_SET(%d)\n", pNode->fd);
-					pNode->used = true; 	// change status
-					FD_SET(pNode->fd, &recv_fds);
-					max_sd = queue_get_max_fd(&g_agent_head);
-				}
-			}
-
-
-			timeout.tv_sec = 10;
-			timeout.tv_usec = 10000;
-			memcpy(&temp_fds, &recv_fds, sizeof(recv_fds)); 	// backup
-			printf("\t(thread_select) wait max_sd(%d)\n",max_sd);
-			rc = select(max_sd+1, &temp_fds, 0, 0, &timeout);
+			timeout.tv_sec = 0;
+			timeout.tv_usec = 1000;
+			memcpy(&temp_fds, &g_agent.recv_fds, sizeof(g_agent.recv_fds)); 	// backup
+			rc = select(g_agent.max_fd+1, &temp_fds, 0, 0, &timeout);
+			//printf("\t(thread_select) select return value(%d)\n",rc);
 			if(-1 == rc)
 			{	
 				perror("thread_select");
 			}else if(0 == rc)
 			{
-				continue;	
-			}
-			
-			TAILQ_FOREACH(pNode, &g_agent_head, nodes)
+				//printf("thread_select timeout\n");
+			}else
 			{
-				if(pNode->used = true)	// check status
+				for(i=0; i<MAX; i++)
 				{
-					if(FD_ISSET(pNode->fd, &temp_fds))
+					if(-1 == g_agent.list[i].fd)
+						continue;
+					else
 					{
-						printf("\tAdd on recv_head(%d)\n", pNode->fd);
-						queue_add(pNode, &g_recv_head);	
-						usleep(10000);
+						if(FD_ISSET(g_agent.list[i].fd, &temp_fds))
+						{
+							// Add : recv_queue
+							//pthread_mutex_lock(&pThr->mutx);
+							memset(&newNode, '\0', sizeof(newNode));
+							newNode.fd = g_agent.list[i].fd;
+							queue_add(newNode, &g_recv_head);	
+							
+							measureStartTime(newNode.fd, 1);
+
+							pthread_cond_signal(&recv_cond);
+							//pthread_cond_broadcast(&recv_cond);
+							//pthread_mutex_unlock(&pThr->mutx);
+							usleep(500);
+
+						}
 					}
-				}		
+				}
 			}
-		
-			
-				//memset(recvBuff, '\0', strlen(recvBuff));
-			
-		}else	// if(queue_count(&g_agent_head) != 0)
+		}else
 		{
-			printf("Empty Agent_queue\n");
-			usleep(100000);
+			pthread_mutex_lock(&pThr->mutx);
+			pthread_cond_wait(&pThr->cond, &pThr->mutx);
+			pthread_mutex_unlock(&pThr->mutx);
 		}
-		
+
 	}// while(1)
 	
 	printf("thread is ended : thread_select\n");
@@ -266,62 +256,90 @@ void *thread_select(void *arg)
 
 void *thread_recv(void *arg)
 {
-	printf("Start : thread_recv(%lu)\n",pthread_self());
+	thr_t *pThr;
+	pThr = (thr_t *)arg;
+	if(pThr == NULL)
+	{
+		printf("thread_recv is fail\n");
+		pthread_exit(NULL);
+	}
+	else
+		printf("START : %s\n", pThr->name);
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
-	int rc, num, idx, new_sd;
+	int rc, str_len;
 	char msg[BUF_SIZE];
-	fd_set recv_fds, temp_fds;
-	char file_name[BUF_SIZE];
 	node_t *pNode = NULL;
-	
-	struct timeval timeout;
 
-	FD_ZERO(&recv_fds);
 	while(1)
 	{
-		if((num = queue_count(&g_recv_head)) > 0)
-		{
-			/*
-			pNode = TAILQ_FIRST(&g_recv_head);
-			printf("꺼냄(%d)\n", pNode->fd);
-			TAILQ_REMOVE(&g_recv_head, pNode, nodes);
-			usleep(100000);
-			*/
-			
-			// 첫번째 값 얻은 후, 삭제
-			pNode = TAILQ_FIRST(&g_recv_head);
-			TAILQ_REMOVE(&g_recv_head, pNode, nodes);
-			FD_SET(pNode->fd, &recv_fds);
+		//pthread_mutex_lock(&recv_mutx);
+		rc = queue_isempty(&g_recv_head);
+		//pthread_mutex_unlock(&recv_mutx);
 
-			memcpy(&temp_fds, &recv_fds, sizeof(recv_fds));
-			printf("wait select(%d)\n", pNode->fd);
-			rc = select(pNode->fd+1, &temp_fds, 0, 0, NULL);
-			if(-1 == rc)
+		if(1 != rc)
+		{		
+
+			//pthread_mutex_lock(&recv_mutx);
+			pNode = queue_get(&g_recv_head);					
+					
+			measureEndTime(pNode->fd, 1);
+			//pthread_mutex_unlock(&recv_mutx);
+
+			if(pNode != NULL)
 			{
-				perror("thread_recv");
-			}else if(0 == rc)
-			{
-				printf("timeout\n");
+				
+				measureStartTime(pNode->fd, 2);
+				str_len = recv(pNode->fd, msg, BUF_SIZE, 0);
+				measureEndTime(pNode->fd, 2);
+				if(1 < str_len)
+				{
+#if DEBUF_PRINT	
+					printf("\t%s msg(%d) : %s\n", pThr->name, pNode->fd, msg);
+#endif
+					
+					//pthread_mutex_lock(&recv_mutx);
+					agent_count(&g_agent, pNode->fd);
+					agent_count(&g_report, pNode->fd);
+					//pthread_mutex_unlock(&recv_mutx);
+				}
+				else if(0 == str_len)
+				{
+					// agent_remove
+					//pthread_mutex_lock(&recv_mutx);
+					agent_remove(&g_agent, pNode->fd);
+
+					measureEndTime(pNode->fd, 0);
+					//pthread_mutex_unlock(&recv_mutx);
+					if(g_agent.count == 0)
+					{
+						print_report(&g_report);
+					}
+		
+				}else if(-1 == str_len)
+				{
+					printf("\tERROR(%d) in %s\n", pNode->fd, pThr->name);
+				}else
+				{
+
+				}
+
+				memset(msg, '\0', strlen(msg));
+	
 			}else
 			{
-				printf("rc : %d\n", rc);	
-			}
-			
+				//printf("ERROR : pNode is NULL\n");
+			}	
+
 		}else
 		{
-			usleep(100000);
-			/*
-			printf("Lock : thread_recv()\n");
-			pthread_mutex_lock(&mutx);
-			pthread_cond_wait(&recv_cond, &mutx);
-			pthread_mutex_unlock(&mutx);
-			printf("Unlock : thread_recv()\n");
-			*/
+			pthread_mutex_lock(&recv_mutx);
+			pthread_cond_wait(&recv_cond, &recv_mutx);
+			pthread_mutex_unlock(&recv_mutx);
+			//printf("unlock : %s\n",pThr->name);
 		}
-	
 
 	}// while(1)
 
@@ -330,81 +348,34 @@ void *thread_recv(void *arg)
 	pthread_exit(NULL);
 }
 
-
-node_t* node_init()					// node_t 생성 후, 반환
+void init_signal()
 {
-	pthread_mutex_lock(&mutx);
-	node_t *new_node = NULL;
-	new_node = (node_t*)malloc(sizeof(node_t));
-	new_node->fd = 0;
-	new_node->used = false;
-	new_node->msg = (char *)malloc(sizeof(BUF_SIZE));
-	pthread_mutex_unlock(&mutx);
-	return new_node;
-}
-void queue_add(node_t *pNode, struct head_s *head)		// 넘겨준 node, insert
-{
-	pthread_mutex_lock(&mutx);
-	TAILQ_INSERT_TAIL(head, pNode, nodes);
-	pthread_mutex_unlock(&mutx);
-	
-	//printf("\tqueue_add() : %d\n", pNode->fd);
-	//queue_print(head);
-}
+	struct sigaction sig_act;
+	sigemptyset(&sig_act.sa_mask);			// signal.sa_mask 초기화
+	sig_act.sa_handler = signal_handler;	// signal.sa_handler 연결
+	sigfillset(&sig_act.sa_mask);			// 모든 signal 등록
+	sigdelset(&sig_act.sa_mask, SIGINT);	// SIGINT 제외
+	sig_act.sa_flags = 0;					// signal.sa_flag 초기화
 
-int queue_remove(node_t *pNode, struct head_s *head)	// 넘겨준 node, remove
-{
-	pthread_mutex_lock(&mutx);
-	node_t *tempNode = NULL;
-
-	TAILQ_FOREACH(tempNode, head, nodes)
+	if(sigprocmask(SIG_BLOCK, &sig_act.sa_mask, 0) < 0)
 	{
-		if(tempNode == pNode)
-		{
-			printf("\tqueue_remove(%d)\n", tempNode->fd);
-			TAILQ_REMOVE(head, tempNode, nodes);
-			free(tempNode);
-			tempNode = NULL;
-			pthread_mutex_unlock(&mutx);
-			return 1;
-		}
+		perror("sigprocmaks");
+		return ;
 	}
-	printf("\t(Error)queue_remove : NOT FOUND\n");
-	pthread_mutex_unlock(&mutx);
 
-	return -1;
-}
-
-int queue_count(struct head_s *head)
-{
-	int count = 0;
-	
-	node_t *pNode = NULL;
-	pthread_mutex_lock(&mutx);
-	
-	TAILQ_FOREACH(pNode, head, nodes)
+	if(sigaction(SIGINT, &sig_act, 0) < 0)
 	{
-		count++;
+		perror("sigaction");
+		return ;
 	}
-	//printf("queue_count(%d)\n", count);	
-	pthread_mutex_unlock(&mutx);
-	return count;
 }
-
-int queue_get_max_fd(struct head_s *head)			// 가장 큰 fd값 리턴
+void signal_handler(int signum)
 {
-	int max = 0;
-	node_t *pNode = NULL;
-	pthread_mutex_lock(&mutx);
+	printf("SIGNAL : SIGINT\n");
+	printf("ctrl+c : exit\n");
 
-	TAILQ_FOREACH(pNode, head, nodes)
-	{
-		if(max < pNode->fd)
-		{
-			max = pNode->fd;
-		}
-	}
-	pthread_mutex_unlock(&mutx);
-	return max;
+	TAILQ_INIT(&g_recv_head);
+	destroy_agentlist(&g_agent);
 
+	signal(SIGINT, SIG_DFL);
 }

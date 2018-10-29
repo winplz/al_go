@@ -16,8 +16,8 @@ int init_network();
 int main()
 {
 	
-	int server_sd, max_sd;
-	int client_sd, client_len;
+	int server_sd, client_sd, max_sd;
+	int client_len;
 	struct sockaddr_in client_addr;
 
 	fd_set recv_fds, send_fds, temp_fds;
@@ -49,58 +49,57 @@ int main()
 	{
 		temp_fds = recv_fds;	
 
-		timeout.tv_sec = 5;
-		timeout.tv_usec = 0;
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 1000;
 		
-		printf("select wait..\n");
+		//printf("select wait..\n");
 		rc = select(max_sd+1, &temp_fds, 0, 0, &timeout);
 		
-		if(rc == -1)
+		if(-1 == rc)
 		{
 			perror("select");
-		}else if(rc == 0)
+			continue;
+		}else if(0 == rc)
 		{
-			printf("select : timeout\n");
+			//printf("select : timeout\n");
 		}else 
 		{
-			if(FD_ISSET(server_sd, &temp_fds))
-			{
-				// accept
-				client_sd = accept(server_sd, (struct sockaddr *)&client_addr, &client_len);
-				FD_SET(client_sd, &recv_fds);
-				if(max_sd < client_sd)
-					max_sd = client_sd;
-				printf("connection(%d)\n", client_sd);
-			}
-		}	
 
-		for(i=server_sd+1; i<=max_sd; i++)
-		{
-			if(FD_ISSET(i, &temp_fds))
+			for(i=server_sd; i<=max_sd; i++)
 			{
-				rc = recv(i, msg, BUF_SIZE, 0);
-				if(rc == 0)
+			
+				if(FD_ISSET(i, &temp_fds))
 				{
-					FD_CLR(i, &recv_fds);
-					close(i);
-					if(max_sd <= i)
-						max_sd = i-1;
-					printf("disconnection(%d)\n", i);
-				}else
-				{
-					printf("\tmessage(%d): %s\n", i, msg);
-					/* echo
-					rc = send(i, msg, strlen(msg), 0);
-					if(rc < 0)
-						printf("send : error\n");
-					*/
+					if(i == server_sd)
+					{
+						// accept
+						client_sd = accept(server_sd, (struct sockaddr *)&client_addr, &client_len);
+						FD_SET(client_sd, &recv_fds);
+						if(max_sd < client_sd)
+							max_sd = client_sd;
+						printf("connection(%d)\n", client_sd);
+					}else
+					{
+
+						rc = recv(i, msg, BUF_SIZE, 0);
+						if(rc == 0)
+						{
+							FD_CLR(i, &recv_fds);
+							close(i);
+							if(max_sd <= i)
+								max_sd = i-1;
+							printf("disconnection(%d)\n", i);
+						}else
+						{
+							printf("\tmessage(%d): %s\n", i, msg);
+						}
+						memset(msg, '\0', BUF_SIZE);
+					}
 				}
-				memset(msg, '\0', BUF_SIZE);
 			}
 		}
 
-
-	}
+	} // while(1)
 	
 	return 0;
 }

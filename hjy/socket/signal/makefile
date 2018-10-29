@@ -1,11 +1,11 @@
 CC = gcc
-TARGET = server_exe
+TARGET = main_exe
 
-OBJECTS = server.o
+OBJECTS = main.o
 
 $(TARGET) : $(OBJECTS)
 	$(CC) -Wall  -o $(TARGET) $(OBJECTS)
 
 
 clean :
-	rm *.o server_exe
+	rm *.o main_exe

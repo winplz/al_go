@@ -20,7 +20,7 @@ int main()
 {
 
 	int server_sd, max_sd;
-	int client_sd, client_len;
+	int client_len;
 	struct sockaddr_in client_addr;
 	fd_set recv_fds;
 	int i, rc;
@@ -57,8 +57,10 @@ int main()
 
 			if(FD_ISSET(server_sd, &recv_fds))
 			{
-				client_sd = accept(server_sd, (struct sockaddr *)&client_addr, &client_len);
+				int client_sd = accept(server_sd, (struct sockaddr *)&client_addr, &client_len);
 				printf("\t(%d)connection\n", client_sd);
+				//pthread_create(&recv_thread, NULL, thread_recv,(void *)client_sd);
+				//pthread_create(&recv_thread, NULL, thread_recv,(void *)client_sd);
 				pthread_create(&recv_thread, NULL, thread_recv,(void *)(intptr_t)client_sd);
 			}
 		}

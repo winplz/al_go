@@ -10,8 +10,6 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <sys/queue.h>	//using : TAILQ 
-#include <signal.h> 	//using : SIGNAL
-
 
 #define DEBUG_PRINT 0
 #define PORT 4321
@@ -23,8 +21,6 @@
 
 
 int init_network();
-
-
 
 typedef enum {false, true} BOOL;
 
@@ -56,7 +52,7 @@ thr_t g_accept_thr;
 thr_t g_select_thr;
 
 
-// 시간 측정을 위한interval 함수
+// 시간 측정을 위한
 long long timeval_diff(struct timeval *diff,
 		struct timeval *end,
 		struct timeval *start);
@@ -66,13 +62,6 @@ long long timeval_diff(struct timeval *diff,
 typedef struct {
 	struct timeval start;
 	struct timeval end;
-	struct timeval average;
-}strtTime;
-
-typedef struct {
-	strtTime connTimes;		// 0 : conn ~ disconn 
-	strtTime queueTimes;	// 1 : queue_add ~ queue_get
-	strtTime recvTimes;		// 2 : before recv ~ after recv
 	int fd;
 	int cnt;
 }agent_node_t;
@@ -87,11 +76,7 @@ typedef struct {
 
 agent_t g_agent, g_report;
 
-void measureStartTime(int fd, int type);
-void measureEndTime(int fd, int type);
-
 void clear_list(agent_t *plist);
-void clear_agent_node(agent_node_t *pnode);
 void print_report(agent_t *plist);
 void add_report(agent_t *plist, agent_node_t node);
 
@@ -100,10 +85,10 @@ void destroy_agentlist(agent_t *plist);
 int get_empty_idx(agent_t *plist);
 int get_agent_idx_by_fd(agent_t *plist, int fd);
 int get_agent_max_sd(agent_t *plist);
-void agent_add(agent_t *plist, agent_node_t node);
-void agent_remove(agent_t *plist, int fd);
-void agent_update(agent_t *plist, agent_node_t node);
-void agent_count(agent_t *plist, int fd);
+void add_agent(agent_t *plist, agent_node_t node);
+void remove_agent(agent_t *plist, int fd);
+void update_agent(agent_t *plist, agent_node_t node);
+void count_agent(agent_t *plist, int fd);
 
 
 

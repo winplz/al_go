@@ -1,10 +1,10 @@
 CC = gcc
 TARGET = server_exe
 
-OBJECTS = server.o
+OBJECTS = server.o common.h
 
 $(TARGET) : $(OBJECTS)
-	$(CC) -Wall  -o $(TARGET) $(OBJECTS)
+	$(CC) -o $(TARGET) $(OBJECTS) -lpthread
 
 
 clean :

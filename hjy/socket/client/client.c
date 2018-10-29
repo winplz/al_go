@@ -39,14 +39,6 @@ int main(int argc, char *argv[])
 
 	while(1)
 	{
-		/*
-		for(i=0; i<10; i++)
-		{
-			sprintf(sendBuff, "test(%d)", i);{
-			rc = send(sd, sendBuff, strlen(sendBuff), 0);
-			
-		}
-		*/
 		printf("Send message : ");
 		scanf("%s",&sendBuff);
 

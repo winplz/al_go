@@ -1,10 +1,10 @@
 CC = gcc
 TARGET = client_exe
 
-OBJECTS = client.o
+OBJECTS = client.o client.h
 
 $(TARGET) : $(OBJECTS)
-	$(CC) -o $(TARGET) $(OBJECTS) -lpthread
+	$(CC) -Wall -o $(TARGET) $(OBJECTS) -lpthread
 
 
 clean :

@@ -4,7 +4,7 @@ TARGET = server_exe
 OBJECTS = server.o
 
 $(TARGET) : $(OBJECTS)
-	$(CC) -o $(TARGET) $(OBJECTS) -lpthread
+	$(CC) -Wall -o $(TARGET) $(OBJECTS) -lpthread
 
 
 clean :
